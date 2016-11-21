@@ -1,0 +1,68 @@
+---
+title: "The Popularity of Names From Trans-Atlantic Slave Trade Database (1880-2014)"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    
+---
+
+```{r setup, include=FALSE}
+library(babynames)
+library(dplyr)
+library(data.table)
+library(reshape2)
+library(DT)
+
+colDefs2 <- list(list(targets = 1, render = JS("function(data, type, full){ return '<span class=spark>' + data + '</span>' }")))
+
+bar_string <- "type: 'bar', barColor: '#FF9966', negBarColor: 'purple', highlightColor: 'black'"
+cb_bar = JS(paste0("function (oSettings, json) { $('.spark:not(:has(canvas))').sparkline('html', { ", 
+                   bar_string, " }); }"), collapse = "")
+
+
+
+data_set<- read.csv("names_data.csv")
+data_set<- select(data_set, slave_name) %>% distinct(slave_name)
+data("babynames")
+
+joined = data_set %>% inner_join(babynames, by = c("slave_name" = "name")) %>% group_by(slave_name, year) %>% summarise(n = sum(n))
+
+ranges = range(joined$n)
+
+completeData<- joined %>% group_by(slave_name) %>% summarise(count = paste(n, collapse = ","))
+
+
+
+maxYear = joined %>% group_by(slave_name) %>% slice(which.max(year)) %>% select(year) %>% rename(maxYear = year)
+minYear = joined %>% group_by(slave_name) %>% slice(which.min(year)) %>% select(year) %>% rename(minYear = year)
+maxVal = joined %>% group_by(slave_name) %>% slice(which.max(n)) %>% select(n) %>% rename(maxCount = n)
+minVal = joined %>% group_by(slave_name) %>% slice(which.min(n)) %>% select(n) %>% rename(minCount = n)
+
+completeData=completeData%>% right_join(maxVal, by = "slave_name") %>% right_join(minYear, by = "slave_name") %>% right_join(maxYear, by = "slave_name")
+
+
+options(DT.options = list(pageLength = 25))
+d1 <- datatable(data.table(completeData), rownames = FALSE, options = list(columnDefs = colDefs2, 
+                                                                     fnDrawCallback = cb_bar),
+                colnames = c('Name', 'Popularity (U.S.) Through 2014', 'Max', 'First Year Appeared', 'Last Year Appeared'), class = 'responsive', style = 'bootstrap') 
+d1$dependencies <- append(d1$dependencies, htmlwidgets:::getDependency("sparkline"))
+
+
+
+```
+
+This table contains contains over 1700 unique names found in the [Trans-Atlantic Slave Trade Database](http://www.slavevoyages.org/resources/names-database) and their popularity in the United States over time as stated by the [Social Security Administration](https://www.ssa.gov/).  Each row containts a bar chart of the total babies born in a given year with that name. The table is searchable and filterable. The motivation for this project was created a proof of concept using [Sparklines](http://omnipotent.net/jquery.sparkline/#s-about). The bar charts within the table provide an interesting way to consume the data, but comes with challenges. Without axes, it's hard to know which year a specific bar corresponds to. Despite the limitations of the chart, I still find it refreshing to consume. 
+
+Jowanza Joseph. Feel free to visit my [blog](http://www.jowanza.com) or say hi on [Twitter](https://www.twitter.com/jowanza). 
+
+
+[1] All data and code can be found on [github](https://github.com/josep2/slave_names).
+
+Row {data-height=900}
+-------------------------------------
+
+###
+
+```{r}
+d1
+```
